@@ -1,88 +1,80 @@
-import gradio as gr
-import numpy as np
+
+import streamlit as st
 import tensorflow as tf
+import numpy as np
+from PIL import Image
 
-# Load the localized Pakistani model and classes
-model = tf.keras.models.load_model('pk_tomato_model.keras')
-with open('pk_classes.txt', 'r') as f:
-    class_names = [line.strip() for line in f.readlines()]
+st.set_page_config(page_title="Tomato Disease Detector PK", layout="centered")
 
-# Extension service treatment guide (English and Urdu)
+@st.cache_resource
+def load_disease_model():
+    model = tf.keras.models.load_model('pk_tomato_model.keras')
+    with open('pk_classes.txt', 'r') as f:
+        classes = [line.strip() for line in f.readlines()]
+    return model, classes
+
+model, class_names = load_disease_model()
+
 TREATMENT_ADVISORY = {
     "Tomato_Early_blight_leaf": {
-        "name_ur": "ٹماٹر کا اگیتا جھلساؤ (Early Blight)",
+        "ur_title": "ٹماٹر کا اگیتا جھلساؤ",
         "en": "Prune infected lower foliage immediately. Apply Chlorothalonil or Mancozeb fungicide. Avoid overhead watering.",
         "ur": "متاثرہ نچلے پتے فوری طور پر کاٹ کر تلف کریں۔ مینکوزیب یا کلوروتھیلونل کا سپرے کریں۔ پودوں کے اوپر سے پانی دینے سے گریز کریں۔"
     },
     "Tomato_leaf_late_blight": {
-        "name_ur": "ٹماٹر کا پچھیتا جھلساؤ (Late Blight)",
+        "ur_title": "ٹماٹر کا پچھیتا جھلساؤ",
         "en": "Severe threat. Destroy infected plants immediately. Spray systemic fungicide containing Metalaxyl or Dimethomorph.",
-        "ur": "یہ شدید نقصان دہ بیماری ہے۔ متاثرہ پودے تلف کریں اور فوری طور پر میٹالیکسل یا ڈائیمیتھومورف فنگس کش دوا کا سپرے کریں۔"
+        "ur": "یہ شدید نقصان دہ بیماری ہے۔ متاثرہ پودے تلف کریں اور فوری طور پر میٹالیکسل یا ڈائیمیتھومورف سپرے کریں۔"
     },
     "Tomato_Septoria_leaf_spot": {
-        "name_ur": "سیپٹوریا پتوں کے دھبے (Septoria Leaf Spot)",
+        "ur_title": "سیپٹوریا پتوں کے دھبے",
         "en": "Improve field spacing for airflow. Apply copper-based fungicides at first symptom appearance.",
-        "ur": "ہوا کی نکاسی کے لیے پودوں کا درمیانی فاصلہ بہتر بنائیں۔ علامات ظاہر ہوتے ہی تانبے پر مشتمل فنگس کش دوا سپرے کریں۔"
+        "ur": "ہوا کی نکاسی کے لیے پودوں کا درمیانی فاصلہ بہتر بنائیں۔ تانبے پر مشتمل فنگس کش دوا سپرے کریں۔"
     },
     "Tomato_mold_leaf": {
-        "name_ur": "پتوں کی پھپھوندی (Leaf Mold)",
+        "ur_title": "پتوں کی پھپھوندی",
         "en": "Reduce humidity in crop canopy. Ensure adequate cross-ventilation and apply registered preventive fungicides.",
         "ur": "فصل میں نمی کا تناسب کم کریں۔ ہوا کی مناسب نکاسی کو یقینی بنائیں اور حفاظتی سپرے کریں۔"
     },
     "Tomato_leaf_yellow_curl_virus": {
-        "name_ur": "ٹماٹر کا وائرس / مڑوڑیا (Yellow Leaf Curl Virus)",
+        "ur_title": "ٹماٹر کا وائرس / مڑوڑیا",
         "en": "Transmitted by whiteflies. Virus cannot be cured directly; control whitefly vector using Imidacloprid or yellow sticky traps.",
         "ur": "یہ وائرس سفید مکھی سے پھیلتا ہے۔ سفید مکھی کے خاتمے کے لیے امیڈاکلوپرڈ سپرے کریں یا پیلے چپکنے والے کارڈز لگائیں۔"
     },
     "Tomato_Healthy_leaf": {
-        "name_ur": "صحت مند پتہ (Healthy Leaf)",
+        "ur_title": "صحت مند پتہ",
         "en": "Leaf shows normal physiological growth. Continue balanced NPK fertilization and clean irrigation.",
-        "ur": "پودا بالکل صحت مند ہے۔ مناسب کھاد اور متوازن آبپاشی جاری رکھیں۔"
+        "ur": "پودا بالکل صحت مند ہے۔ مناسب کھاد اور متوازن دیکھ بھال جاری رکھیں۔"
     }
 }
 
-def diagnose(image):
-    if image is None:
-        return "No image provided", "", ""
+st.title("🍅 Tomato Leaf Disease Detector (Pakistan)")
+st.write("Deep learning diagnostic model fine-tuned on Pakistani field conditions.")
+
+uploaded_file = st.file_uploader("Upload Leaf Photo / پتے کی تصویر منتخب کریں", type=["jpg", "jpeg", "png"])
+
+if uploaded_file is not None:
+    img = Image.open(uploaded_file).convert("RGB")
+    st.image(img, caption="Uploaded Leaf Image", use_column_width=True)
     
-    img = tf.image.resize(image, (224, 224))
-    img_array = tf.keras.applications.mobilenet_v2.preprocess_input(img)
-    preds = model.predict(tf.expand_dims(img_array, 0), verbose=0)[0]
+    # Preprocess
+    img_resized = img.resize((224, 224))
+    img_array = tf.keras.applications.mobilenet_v2.preprocess_input(np.array(img_resized, dtype=np.float32))
+    img_batch = np.expand_dims(img_array, axis=0)
     
+    preds = model.predict(img_batch, verbose=0)[0]
     top_idx = int(np.argmax(preds))
-    confidence = float(preds[top_idx])
+    conf = float(preds[top_idx])
     predicted_class = class_names[top_idx]
     
-    # 70% threshold guardrail for decision support
-    if confidence < 0.70:
-        return (
-            "Not Sure / غیر یقینی (<70% Confidence)",
-            "The model confidence is low. Please consult an Agriculture Extension Officer instead of taking action.",
-            "ماڈل اس نتیجے پر مکمل مطمئن نہیں ہے۔ براہ کرم سپرے سے پہلے قریبی زرعی دفتر کے ماہر سے مشورہ لیں۔"
-        )
-    
-    info = TREATMENT_ADVISORY.get(predicted_class, {
-        "name_ur": predicted_class,
-        "en": "Follow standard agricultural pest management protocol.",
-        "ur": "معیاری زرعی حفاظتی تدابیر پر عمل کریں۔"
-    })
-    
-    diagnosis_str = f"{predicted_class} ({info['name_ur']}) — {confidence * 100:.1f}% Confidence"
-    return diagnosis_str, info['en'], info['ur']
-
-# Gradio Interface
-demo = gr.Interface(
-    fn=diagnose,
-    inputs=gr.Image(type="numpy", label="Upload Leaf Photo / تصویر منتخب کریں"),
-    outputs=[
-        gr.Textbox(label="Diagnosis & Confidence / تشخیص"),
-        gr.Textbox(label="Recommended Action (English)"),
-        gr.Textbox(label="زرعی ماہرین کی تجویز (Urdu)")
-    ],
-    title="Tomato Leaf Disease Diagnostic System (Pakistan)",
-    description="Fine-tuned deep learning system trained on field-collected tomato foliage from Pakistani crops.",
-    theme="soft"
-)
-
-if __name__ == "__main__":
-    demo.launch(share=True)
+    st.subheader("Diagnostic Results / نتائج")
+    if conf < 0.70:
+        st.warning("⚠️ **Low Confidence / غیر یقینی (<70%)**")
+        st.write("Model confidence is too low to guarantee diagnosis. Please consult an Agriculture Extension Officer.")
+        st.write("ماڈل اس نتیجے پر مکمل مطمئن نہیں ہے۔ برائے مہربانی قریبی محکمہ زراعت کے ماہر سے مشورہ لیں۔")
+    else:
+        st.success(f"**Diagnosis:** {predicted_class} ({conf*100:.1f}%)")
+        adv = TREATMENT_ADVISORY.get(predicted_class, {"ur_title": "", "en": "Consult agriculture officer.", "ur": "زرعی ماہر سے رابطہ کریں۔"})
+        st.info(f"**اردو نام:** {adv['ur_title']}")
+        st.markdown(f"**Recommended Action (English):** {adv['en']}")
+        st.markdown(f"**زرعی ماہرین کی تجویز (Urdu):** {adv['ur']}")
