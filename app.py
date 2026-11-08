@@ -3,7 +3,7 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image
 
-# Page setup
+# Page Configuration
 st.set_page_config(
     page_title="PakTomato AI | Crop Health Assistant",
     page_icon="🍅",
@@ -14,64 +14,82 @@ st.set_page_config(
 # Polished UI Styling
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Noto+Nastaliq+Urdu:wght@400;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Nastaliq+Urdu:wght@400;700&display=swap');
     
     html, body, [class*="css"] {
         font-family: 'Plus Jakarta Sans', sans-serif;
     }
-    
-    .urdu-font {
-        font-family: 'Noto Nastaliq Urdu', serif;
-        direction: rtl;
-        text-align: right;
-        line-height: 2.2;
+
+    .block-container {
+        max-width: 1100px;
+        padding-top: 2rem;
+        padding-bottom: 3rem;
     }
 
     .hero-banner {
-        background: linear-gradient(135deg, #064e3b 0%, #047857 60%, #10b981 100%);
-        border-radius: 18px;
-        padding: 2rem 2.5rem;
+        background: linear-gradient(135deg, #064e3b 0%, #047857 55%, #10b981 100%);
+        border-radius: 16px;
+        padding: 1.8rem 2.2rem;
         color: #ffffff;
-        margin-bottom: 2rem;
-        box-shadow: 0 12px 30px -10px rgba(4, 120, 87, 0.45);
+        margin-bottom: 1.8rem;
+        box-shadow: 0 10px 25px -5px rgba(4, 120, 87, 0.35);
     }
-    
+
     .card {
         background: #ffffff;
-        border: 1px solid #e5e7eb;
+        border: 1px solid #e2e8f0;
         border-radius: 14px;
-        padding: 1.5rem;
-        margin-bottom: 1.2rem;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        padding: 1.4rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04);
+        margin-bottom: 1rem;
     }
-    
+
     .status-pill {
         display: inline-block;
-        padding: 0.3rem 0.8rem;
+        padding: 0.25rem 0.75rem;
         border-radius: 9999px;
-        font-size: 0.8rem;
+        font-size: 0.78rem;
         font-weight: 700;
         letter-spacing: 0.05em;
         text-transform: uppercase;
-        margin-bottom: 0.6rem;
+        margin-bottom: 0.5rem;
     }
     .pill-danger { background: #fee2e2; color: #991b1b; }
     .pill-warning { background: #fef3c7; color: #92400e; }
     .pill-success { background: #d1fae5; color: #065f46; }
+
+    .confidence-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #f8fafc;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        margin-top: 0.75rem;
+        border: 1px solid #e2e8f0;
+    }
 
     .protocol-card-ur {
         background: #f0fdf4;
         border-right: 4px solid #059669;
         border-radius: 10px;
         padding: 1.2rem;
-        margin-top: 1rem;
+        margin-top: 0.8rem;
+        direction: rtl;
+        text-align: right;
+        font-family: 'Noto Nastaliq Urdu', serif;
+        line-height: 2.2;
     }
+
     .protocol-card-en {
         background: #f8fafc;
-        border-left: 4px solid #3b82f6;
+        border-left: 4px solid #2563eb;
         border-radius: 10px;
         padding: 1.2rem;
-        margin-top: 1rem;
+        margin-top: 0.8rem;
+        font-size: 0.92rem;
+        line-height: 1.6;
+        color: #1e293b;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -91,8 +109,8 @@ ADVISORY_DB = {
         "pathogen": "Alternaria solani",
         "risk": "High Risk",
         "pill": "pill-danger",
-        "en": "Prune infected lower foliage immediately to stop spore splash. Apply Chlorothalonil or Mancozeb fungicide spray at early emergence. Strictly avoid overhead spray irrigation.",
-        "ur": "نچلے بیمار پتوں کو کاٹ کر تلف کریں۔ مینکوزیب یا کلوروتھیلونل کا سپرے کریں۔ پودوں پر اوپر سے پانی دینے سے گریز کریں۔"
+        "en": "Prune infected lower foliage immediately to prevent fungal spore splash. Apply Chlorothalonil or Mancozeb fungicide spray at early emergence. Strictly avoid overhead spray irrigation.",
+        "ur": "نچلے بیمار پتوں کو فوری کاٹ کر تلف کریں۔ مینکوزیب یا کلوروتھیلونل کا حفاظتی سپرے کریں۔ پودوں پر اوپر سے پانی دینے سے مکمل گریز کریں۔"
     },
     "Tomato_leaf_late_blight": {
         "title_ur": "ٹماٹر کا پچھیتا جھلساؤ",
@@ -123,15 +141,15 @@ ADVISORY_DB = {
         "pathogen": "Begomovirus (Whitefly Vector)",
         "risk": "Viral Threat",
         "pill": "pill-danger",
-        "en": "Direct cures do not exist for viral genome infections. Eradicate whitefly insect vectors using Imidacloprid/Acetamiprid applications and yellow sticky card traps.",
+        "en": "Direct cures do not exist for viral infections. Eradicate whitefly insect vectors using Imidacloprid/Acetamiprid applications and yellow sticky card traps.",
         "ur": "اس وائرس کا براہ راست کوئی علاج نہیں۔ سفید مکھی کے خاتمے کے لیے پیلے چپکنے والے کارڈ لگائیں اور امیڈاکلوپرڈ سپرے کریں۔"
     },
     "Tomato_Healthy_leaf": {
         "title_ur": "صحت مند پودا",
         "pathogen": "None (Healthy Foliage)",
-        "risk": "Normal State",
+        "risk": "Healthy",
         "pill": "pill-success",
-        "en": "Tissue exhibits normal vigor. Maintain standard NPK fertilizer ratios and weed control protocols.",
+        "en": "Tissue exhibits normal vigor. Maintain standard NPK fertilizer ratios and routine weed management.",
         "ur": "پودا بالکل صحت مند ہے۔ معمول کے مطابق متوازن کھاد اور پانی کا شیڈول جاری رکھیں۔"
     }
 }
@@ -139,13 +157,13 @@ ADVISORY_DB = {
 # Hero Banner
 st.markdown("""
 <div class="hero-banner">
-    <div style="display: flex; align-items: center; gap: 1rem;">
-        <span style="font-size: 2.8rem;">🍅</span>
+    <div style="display: flex; align-items: center; gap: 1.2rem;">
+        <span style="font-size: 2.6rem;">🍅</span>
         <div>
-            <h1 style="margin: 0; font-size: 1.85rem; font-weight: 700; color: #fff;">
-                PakTomato AI &bull; Smart Foliage Diagnostic System
+            <h1 style="margin: 0; font-size: 1.8rem; font-weight: 800; color: #fff;">
+                PakTomato AI &bull; Foliage Health Diagnostic System
             </h1>
-            <p style="margin: 0.3rem 0 0 0; opacity: 0.9; font-size: 0.95rem;">
+            <p style="margin: 0.25rem 0 0 0; opacity: 0.9; font-size: 0.92rem;">
                 Neural vision engine fine-tuned for local tomato crop pathology across Pakistani agricultural zones.
             </p>
         </div>
@@ -161,7 +179,7 @@ with col_specimen:
     uploaded_file = st.file_uploader(
         "Upload high-resolution foliage photograph:",
         type=["jpg", "jpeg", "png"],
-        help="Upload an isolated leaf photograph taken under clear daylight for best evaluation accuracy."
+        help="Upload an isolated leaflet photo taken under clear natural lighting."
     )
     
     if uploaded_file is not None:
@@ -175,8 +193,8 @@ with col_diagnostics:
     
     if uploaded_file is None:
         st.markdown("""
-        <div style="border: 2px dashed #cbd5e1; border-radius: 12px; padding: 2.5rem; text-align: center; color: #64748b;">
-            <p style="font-size: 1.1rem; margin: 0;">Awaiting leaf upload to initiate neural feature extraction.</p>
+        <div style="border: 2px dashed #cbd5e1; border-radius: 12px; padding: 3rem 1.5rem; text-align: center; color: #64748b;">
+            <p style="font-size: 1.05rem; margin: 0;">Upload a foliage photo to view disease classification and management advisory.</p>
         </div>
         """, unsafe_allow_html=True)
     else:
@@ -193,17 +211,15 @@ with col_diagnostics:
 
         readable_name = pred_class.replace('Tomato_', '').replace('_', ' ')
         
-        # Primary Diagnostic Card
+        # Primary Diagnostic Card with neatly contained stats
         st.markdown(f"""
         <div class="card">
             <span class="status-pill {info.get('pill', 'pill-warning')}">{info.get('risk', 'Identified')}</span>
-            <h2 style="margin: 0.2rem 0; color: #0f172a; font-size: 1.5rem; text-transform: capitalize;">{readable_name}</h2>
+            <h2 style="margin: 0.2rem 0; color: #0f172a; font-size: 1.55rem; text-transform: capitalize;">{readable_name}</h2>
             <p style="margin: 0; color: #64748b; font-size: 0.9rem;"><strong>Pathogen:</strong> <i>{info.get('pathogen', 'N/A')}</i></p>
-            <div style="margin-top: 1rem;">
-                <div style="display: flex; justify-content: space-between; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.3rem;">
-                    <span>Diagnostic Confidence</span>
-                    <span style="color: #047857;">{confidence * 100:.2f}%</span>
-                </div>
+            <div class="confidence-row">
+                <span style="font-weight: 600; color: #334155; font-size: 0.9rem;">Model Confidence</span>
+                <span style="font-weight: 800; color: #047857; font-size: 1.1rem;">{confidence * 100:.2f}%</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -211,7 +227,7 @@ with col_diagnostics:
 
         # Advisory Protocols
         st.markdown(f"""
-        <div class="protocol-card-ur urdu-font">
+        <div class="protocol-card-ur">
             <strong>زرعی ہدایت ({info.get('title_ur', '')}):</strong><br>
             {info.get('ur', '')}
         </div>
